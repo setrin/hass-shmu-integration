@@ -27,7 +27,10 @@ are mocked in these tests; they do not exercise the user's running HA installati
 
 The updated CI runs the Linux HA 2025.12.5/Python 3.13 and HA 2026.10.0/Python 3.14
 matrix, plus hassfest and HACS checks. HACS's brands check is excluded because local
-brand assets ship with the integration. Remote results are recorded after the push.
+brand assets ship with the integration. In the first new CI run, HA 2026.10 and
+hassfest passed. HACS detected an unrecognized license due to an explanatory footer;
+the footer was moved to README, keeping the MIT text and scope unchanged.
+Final CI results are available in the repository's Actions tab.
 
 ## Earlier baseline
 

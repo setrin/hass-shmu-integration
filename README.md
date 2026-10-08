@@ -210,3 +210,6 @@ catalogue and distance helper are adapted from [vaind/ha-shmu](https://github.co
 under the MIT license; its copyright and license are included in the installed
 integration's `NOTICE`. The integration supplies the missing public Sectigo TLS
 intermediate for the observation server, retaining certificate and hostname verification.
+
+This license covers the integration code, documentation and original generic
+weather icon. It does not grant rights to SHMÚ's source data, name or trademarks.
