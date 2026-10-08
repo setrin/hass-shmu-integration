@@ -50,12 +50,20 @@ async def test_success_and_cache(fixture_data):
             mock.get(INDEX, payload=products(), repeat=True)
             mock.get(ALADIN, payload=fixture_data("aladin"))
             mock.get(ECMWF, payload=fixture_data("ecmwf"))
+            mock.get(
+                f"{DATA_URL}/aladin/2026-10-07/32397_2026-10-07_18.json",
+                payload=shift_aladin(fixture_data, -6),
+            )
             data = await client.fetch("combined", NOW)
             assert data.degraded_models == []
             # No second JSON response registered: this fails if the cache is bypassed.
             again = await client.fetch("combined", NOW + timedelta(minutes=30))
             assert again.runs == data.runs
-            assert len(mock.requests) == 3
+            assert len(mock.requests) == 4
+            assert all(
+                len(calls) == (2 if str(url) == INDEX else 1)
+                for (_, url), calls in mock.requests.items()
+            )
 
 
 async def test_latest_06_run_missing_falls_back_to_00(fixture_data):
@@ -141,4 +149,88 @@ async def test_new_run_keeps_earlier_hours_today(fixture_data):
     after = await client.fetch("aladin", noon)
     assert min(after.hours) == min(before.hours)
     assert after.runs["aladin"].initialized == noon
-    assert len(client._past_hours) <= 25
+    assert all(len(hours) <= 25 for hours in client._history.values())
+
+
+def shift_aladin(fixture_data, hours, temperature=None):
+    """Keep the real wire format while synthesizing model cycles for regression tests."""
+    payload = fixture_data("aladin")
+    initialized = datetime.fromisoformat(payload["data_date_time"].replace("Z", "+00:00"))
+    payload["data_date_time"] = (initialized + timedelta(hours=hours)).isoformat()
+    for field in payload.values():
+        if isinstance(field, dict):
+            for row in field["data"]:
+                row[0] += hours * 3600
+    if temperature is not None:
+        for row in payload["Air_temperature_at_2m"]["data"]:
+            row[1] = temperature
+    return payload
+
+
+@pytest.mark.parametrize("mode", ["aladin", "combined"])
+async def test_afternoon_restart_recovers_morning_low_without_changing_future(fixture_data, mode):
+    from custom_components.shmu.forecast import today_extreme
+
+    now = NOW.replace(hour=20)
+    paths = [("2026-10-08", 12, 12, 15), ("2026-10-08", 0, 0, 2), ("2026-10-07", 18, -6, 5)]
+    index = products()
+    index["data"] = [r for r in index["data"] if r["type"] != "aladin"]
+    async with aiohttp.ClientSession() as session:
+        with aioresponses() as mock:
+            for day, hour, delta, temperature in paths:
+                path = f"aladin/{day}/32397_{day}_{hour:02d}.json"
+                initialized = datetime.fromisoformat(f"{day}T{hour:02d}:00:00+00:00")
+                index["data"].append(
+                    {"type": "aladin", "runtime": int(initialized.timestamp()), "file_link": path}
+                )
+                mock.get(
+                    f"{DATA_URL}/{path}", payload=shift_aladin(fixture_data, delta, temperature)
+                )
+            mock.get(INDEX, payload=index, repeat=True)
+            mock.get(f"{DATA_URL}/aladin/2026-10-08/32397_2026-10-08_06.json", status=404)
+            mock.get(ECMWF, payload=fixture_data("ecmwf"))
+            client = ShmuClient(session, "32397")
+            data = await client.fetch(mode, now)
+            result = today_extreme(data.hours, "native_temperature", "min", now)
+            assert result["value"] == 2
+            assert result["coverage_complete"] and result["value_hours"] == 24
+            assert data.hours[int(now.timestamp())]["native_temperature"] == 15
+            assert (
+                data.hours[int((now + timedelta(days=1)).timestamp())]["native_temperature"] == 15
+            )
+            assert data.runs["aladin"].initialized.hour == 12
+            # The oldest valid cycle supplies only the two missing midnight hours.
+            midnight = int(now.replace(hour=0).timestamp()) - 2 * 3600
+            assert data.hours[midnight]["native_temperature"] == 5
+            # Complete history does not trigger more downloads on the next refresh.
+            requests_before = sum(len(calls) for calls in mock.requests.values())
+            again = await client.fetch(mode, now + timedelta(minutes=30))
+            assert today_extreme(again.hours, "native_temperature", "min", now)["value"] == 2
+            assert sum(len(calls) for calls in mock.requests.values()) == requests_before + 1
+
+
+async def test_history_failure_preserves_current_forecast_and_reports_partial_day(fixture_data):
+    from custom_components.shmu.forecast import today_extreme
+
+    now = NOW.replace(hour=20)
+    latest = f"{DATA_URL}/aladin/2026-10-08/32397_2026-10-08_12.json"
+    index = {
+        "station": {"station_id": 32397},
+        "data": [
+            {
+                "type": "aladin",
+                "runtime": int(now.replace(hour=12).timestamp()),
+                "file_link": latest.removeprefix(DATA_URL + "/"),
+            }
+        ],
+    }
+    async with aiohttp.ClientSession() as session:
+        with aioresponses() as mock:
+            mock.get(INDEX, payload=index)
+            mock.get(latest, payload=shift_aladin(fixture_data, 12, 15))
+            mock.get(re.compile(r"https://www.shmu.sk/data/.*"), status=404, repeat=True)
+            data = await ShmuClient(session, "32397").fetch("aladin", now)
+            result = today_extreme(data.hours, "native_temperature", "min", now)
+            assert result["value"] == 15 and not result["coverage_complete"]
+            assert result["value_hours"] == 10
+            assert len(mock.requests) == 6  # Index + latest run + at most four older cycles.

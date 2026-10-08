@@ -176,3 +176,19 @@ make the observed contract explicit.
   A successful empty current district table is a clear result; a retrieval/parsing
   failure is unavailable. The source has no explicit freshness timestamp, so
   `last_checked` means successful retrieval, not the time SHMÚ issued the snapshot.
+
+
+## Full-day history after restart (0.3.1)
+
+A fresh start late on October 8 loaded the 12 UTC cycles, covering only 14:00–24:00
+local time for that date. The resulting 15.036°C low was a partial-day minimum.
+The client now fills missing elapsed hours separately for each selected model from
+at most four preceding cycles (validated identity, age at most 48 hours), newest
+first. The combined-mode ALADIN preference also applies to these recovered hours.
+Latest current/future records and latest-run metadata are not replaced. A bounded
+one-day cache avoids downloading history again while coverage is complete.
+
+For city 32397, a fresh live check after this fix produced 24/24 hours and an
+8.009°C minimum for 2026-10-08. This is still a forecast minimum, not an observed
+minimum at the user's location. Missing historical files leave explicit partial
+coverage; historical data never substitutes for a usable current forecast.

@@ -33,7 +33,7 @@ class ShmuClient:
         if not self.station_id.isdigit():
             raise ValueError("Invalid station ID")
         self._cache = {}
-        self._past_hours = {}
+        self._history = {}
 
     async def _json(self, url):
         try:
@@ -98,6 +98,58 @@ class ShmuClient:
             return cached[1], True
         return None, True
 
+    async def _today_hours(self, model, run, paths, now):
+        """Recover elapsed hours after restart without replacing current/future values."""
+        midnight = now.astimezone(LOCAL_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = int(midnight.timestamp())
+        hour = int(now.timestamp()) // 3600 * 3600
+        history = {t: row for t, row in self._history.get(model, {}).items() if start <= t < hour}
+        hours = history | run.hours
+        missing = set(range(start, hour, 3600)) - hours.keys()
+        if missing:
+            # Use published entries and predictable preceding cycles, newest first.
+            step = 6 if model == "aladin" else 12
+            candidates = list(paths) + [
+                f"{model}/{dt:%Y-%m-%d}/{self.station_id}_{dt:%Y-%m-%d_%H}.json"
+                for dt in (run.initialized - timedelta(hours=step * i) for i in range(1, 5))
+            ]
+            older = []
+            for path in dict.fromkeys(candidates):
+                try:
+                    stamp = (
+                        path.rsplit("/", 1)[-1]
+                        .removeprefix(f"{self.station_id}_")
+                        .removesuffix(".json")
+                    )
+                    initialized = datetime.strptime(stamp, "%Y-%m-%d_%H").replace(tzinfo=UTC)
+                except ValueError:
+                    continue
+                if initialized < run.initialized and timedelta(0) <= now - initialized <= timedelta(
+                    hours=MAX_RUN_AGE_HOURS
+                ):
+                    older.append((initialized, path))
+            for initialized, path in sorted(older, reverse=True)[:4]:
+                try:
+                    previous = parse_run(
+                        await self._json(f"{DATA_URL}/{path}"), model, self.station_id
+                    )
+                    if previous.initialized != initialized:
+                        raise ValueError("Historical run identity mismatch")
+                except (ShmuError, KeyError, TypeError, ValueError, IndexError, OverflowError):
+                    continue
+                hours.update({t: previous.hours[t] for t in missing if t in previous.hours})
+                missing -= hours.keys()
+                if not missing:
+                    break
+        # At most one local day's records per model, including hours that will elapse
+        # before the next refresh. Keep latest-run metadata separate from older hours.
+        self._history[model] = {
+            t: row
+            for t, row in hours.items()
+            if datetime.fromtimestamp(t, UTC).astimezone(LOCAL_TZ).date() == midnight.date()
+        }
+        return ModelRun(model, run.initialized, hours)
+
     async def fetch(self, mode, now=None):
         now = (now or datetime.now(UTC)).astimezone(UTC)
         models = ("aladin", "ecmwf") if mode == "combined" else (mode,)
@@ -134,21 +186,13 @@ class ShmuClient:
         hours = merge_runs(runs, mode)
         if int(now.timestamp()) // 3600 * 3600 not in hours:
             raise ShmuError("No fresh forecast covers the current hour")
-        # Keep earlier modeled hours of today when a new run replaces the old one.
-        # This is a bounded in-memory history, never a substitute for a fresh forecast.
-        today = now.astimezone(LOCAL_TZ).date()
-        hour = int(now.timestamp()) // 3600 * 3600
-        past = {
-            t: row
-            for t, row in self._past_hours.items()
-            if t < hour and datetime.fromtimestamp(t, UTC).astimezone(LOCAL_TZ).date() == today
-        }
-        hours = dict(sorted((past | hours).items()))
-        self._past_hours = {
-            t: row
-            for t, row in hours.items()
-            if datetime.fromtimestamp(t, UTC).astimezone(LOCAL_TZ).date() == today
-        }
+        historical = await asyncio.gather(
+            *(
+                self._today_hours(model, run, paths_by_model[model], now)
+                for model, run in runs.items()
+            )
+        )
+        hours = merge_runs({run.model: run for run in historical}, mode)
         degraded = [
             model
             for model, (_, fallback) in zip(models, results, strict=True)

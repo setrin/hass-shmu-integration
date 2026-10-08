@@ -1,5 +1,16 @@
 # Validation — 2026-10-08
 
+## Version 0.3.1 — recover today's earlier forecast hours
+
+- Reproduced 15.036°C with only 10/24 hours after a cold start for Veľký Šariš.
+- Live corrected client recovered 24/24 hours and a minimum of 8.009°C.
+- Python 3.13 / HA 2025.12.5: **65 tests passed**, with lint/format checks passing.
+- Regression tests cover afternoon restart in ALADIN and combined modes, older
+  midnight coverage, model precedence, unchanged current/future values, history
+  cache reuse and bounded failure with honest partial-coverage metadata.
+- The fix is prepared as 0.3.1 because 0.3.0 is already published. Publication is
+  separate; GitHub checks run on the pushed commit.
+
 ## Version 0.3.0 — additional sensors
 
 - Python 3.13 / Home Assistant 2025.12.5: **62 tests passed**, exit status 0.

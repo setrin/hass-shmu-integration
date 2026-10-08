@@ -100,7 +100,10 @@ days. High/low are extrema of the hourly temperature series, not extrema across
 ensemble members. Daily wind/gust values are the maxima of that day's normalized
 series. Daily rainfall is the sum of available hourly estimates. Today's forecast
 includes already elapsed modeled hours when available and retains them in memory
-when a newer model run is fetched. Today can be partial, especially after a restart;
+when a newer model run is fetched. After a restart, missing elapsed hours are recovered
+from up to four earlier cycles per selected model, newest first. Earlier files fill
+only missing past hours; current and future values keep the latest selected run.
+If older files are unavailable, today can still be partial;
 inspect `forecast_day_coverage` before treating today's totals as full-day values.
 Incomplete future days are omitted from daily cards, while their hours remain in
 the hourly forecast. A wet hour remains visible in the day's condition icon. The UI's daily high/low can understate true daily
@@ -155,7 +158,7 @@ observed so far. The gust minimum is the smallest hourly gust forecast, not a lu
 measurement. Values follow your selected ALADIN/ECMWF strategy.
 
 Daily sensors expose `forecast_date`, `forecast_hours`, `value_hours`, `expected_hours`
-and `coverage_complete`. Partial coverage after startup and missing fields can affect
+and `coverage_complete`. Unavailable older runs and missing fields can leave partial coverage and affect
 extrema; missing values are never treated as zero. Days with daylight-saving changes
 have 23 or 25 expected hours. Sensors advance at each hour, including local midnight.
 
@@ -219,7 +222,7 @@ Use **Actions → Release → Run workflow** on the `main` branch:
 
 1. Update `version` in `custom_components/shmu/manifest.json`, commit and push to
    `main`. Use `0.1.1` for a fix, `0.2.0` for a feature, etc. The initial release
-   can use the current manifest version (`0.3.0`).
+   can use the current manifest version (`0.3.1`).
 2. Enter that version **without** `v` in the workflow's **Version** field.
 3. Leave **Publish release** unchecked to test the entire workflow without creating
    a tag or release. Check it when you intend to publish.
