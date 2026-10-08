@@ -1,5 +1,18 @@
 # Validation — 2026-10-08
 
+## Version 0.3.0 — additional sensors
+
+- Python 3.13 / Home Assistant 2025.12.5: **62 tests passed**, exit status 0.
+- Ruff lint, formatting and whitespace checks passed.
+- Adds eight sensors for today's forecast temperature/wind/gust extrema and
+  current wind/gust, sharing current-weather selection with the weather entity.
+- Tests verify local-date boundaries, 23/25-hour DST coverage, partial/missing
+  values, zero wind, HA unit conversion, observations during forecast outages,
+  unavailable daily sensors, fallback, hourly clock callback and listener cleanup.
+- GitHub's test matrix, hassfest and HACS run on the pushed commit; consult the
+  Actions tab for final results. No new external endpoints are introduced.
+- Manifest prepared as 0.3.0; a GitHub release is a separate publication step.
+
 ## Version 0.2.0
 
 - Python 3.13.14, Home Assistant 2025.12.5: **59 tests passed**, exit status 0.

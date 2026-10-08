@@ -185,3 +185,49 @@ def test_future_day_requires_complete_dst_coverage(start, count):
     assert len(daily_forecasts(hours, day - timedelta(days=1))) == 1
     hours.pop(max(hours))
     assert daily_forecasts(hours, day - timedelta(days=1)) == []
+
+
+def test_today_extrema_use_local_day_and_keep_zero_and_missing_values():
+    from custom_components.shmu.forecast import today_extreme
+
+    # At 22:30 UTC in summer it is already the next Slovak calendar day.
+    now = datetime(2026, 10, 8, 22, 30, tzinfo=UTC)
+    start = int(now.replace(minute=0).timestamp())
+    hours = {
+        start - 3600: {"native_temperature": -99, "native_wind_speed": 99},
+        start: {"native_temperature": 5, "native_wind_speed": 0},
+        start + 3600: {"native_temperature": 12, "native_wind_speed": 4},
+        start + 7200: {"native_temperature": 7},
+        start + 86400: {"native_temperature": 99, "native_wind_speed": 99},
+    }
+    low = today_extreme(hours, "native_temperature", "min", now)
+    assert low == {
+        "value": 5,
+        "forecast_date": "2026-10-09",
+        "forecast_hours": 3,
+        "value_hours": 3,
+        "expected_hours": 24,
+        "coverage_complete": False,
+    }
+    assert today_extreme(hours, "native_temperature", "max", now)["value"] == 12
+    wind = today_extreme(hours, "native_wind_speed", "min", now)
+    assert wind["value"] == 0 and wind["value_hours"] == 2
+    assert today_extreme(hours, "native_wind_gust_speed", "max", now)["value"] is None
+    assert today_extreme(hours, "native_temperature", "max", now + timedelta(days=1))["value"] == 99
+    assert today_extreme({}, "native_temperature", "min", now)["value"] is None
+
+
+@pytest.mark.parametrize(
+    "start,count", [("2026-03-28T23:00:00+00:00", 23), ("2026-10-24T22:00:00+00:00", 25)]
+)
+def test_today_extrema_complete_coverage_on_dst_days(start, count):
+    from custom_components.shmu.forecast import today_extreme
+
+    now = datetime.fromisoformat(start)
+    hours = {
+        int((now + timedelta(hours=i)).timestamp()): {"native_wind_gust_speed": i}
+        for i in range(count)
+    }
+    high = today_extreme(hours, "native_wind_gust_speed", "max", now + timedelta(hours=12))
+    assert high["value"] == count - 1
+    assert high["coverage_complete"] and high["expected_hours"] == count

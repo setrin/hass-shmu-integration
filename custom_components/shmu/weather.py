@@ -11,8 +11,8 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_STATION, DOMAIN
+from .current import current_forecast, fresh_observation
 from .forecast import condition, daily_forecasts, day_coverage
-from .live import MAX_OBSERVATION_AGE
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -55,15 +55,7 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
 
     @property
     def _observation(self):
-        live = self.coordinator.live
-        row = (live.data or {}).get("observation") if live.last_update_success else None
-        if (
-            row
-            and datetime.now(UTC) - datetime.fromisoformat(row["measured_at"])
-            <= MAX_OBSERVATION_AGE
-        ):
-            return row
-        return None
+        return fresh_observation(self.coordinator, datetime.now(UTC))
 
     @property
     def _values(self):
@@ -79,8 +71,7 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
 
     @property
     def _current(self):
-        timestamp = int(datetime.now(UTC).timestamp()) // 3600 * 3600
-        return self.coordinator.data.hours.get(timestamp, {}) if self.coordinator.data else {}
+        return current_forecast(self.coordinator, datetime.now(UTC))
 
     @property
     def available(self):

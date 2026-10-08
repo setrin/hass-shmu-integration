@@ -189,6 +189,8 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
     observation = {
         "native_temperature": 13.2,
         "humidity": 81,
+        "native_wind_speed": 0,
+        "native_wind_gust_speed": 4,
         "station": "Košice",
         "distance_km": 42,
         "measured_at": now.isoformat(),
@@ -226,13 +228,48 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
         entry = created["result"]
         weather = hass.states.async_all("weather")[0].entity_id
         binary = hass.states.async_all("binary_sensor")[0].entity_id
-        level = hass.states.async_all("sensor")[0].entity_id
+        registry = entity_registry.async_get(hass)
+        level = registry.async_get_entity_id("sensor", "shmu", "32397_warning_level")
+
+        def sensor(key):
+            return hass.states.get(registry.async_get_entity_id("sensor", "shmu", f"32397_{key}"))
+
+        assert len(hass.states.async_all("sensor")) == 9
+        assert sensor("current_wind").state == "0.0"
+        assert sensor("current_gust").state == "14.4"  # HA metric preference converts m/s to km/h.
+        assert sensor("current_wind").attributes["source"] == "observation"
+        assert sensor("current_wind").attributes["unit_of_measurement"] == "km/h"
+        for key in (
+            "today_temperature_min",
+            "today_temperature_max",
+            "today_wind_min",
+            "today_wind_max",
+            "today_gust_min",
+            "today_gust_max",
+        ):
+            assert sensor(key).state not in ("unknown", "unavailable")
+            assert sensor(key).attributes["source"] == "forecast_model"
+            assert "coverage_complete" in sensor(key).attributes
+        assert sensor("today_temperature_min").attributes["unit_of_measurement"] == "°C"
+        assert float(sensor("today_temperature_min").state) <= float(
+            sensor("today_temperature_max").state
+        )
         assert hass.states.get(weather).attributes["temperature"] == 13.2
         assert hass.states.get(weather).attributes["humidity"] == 81
         assert hass.states.get(weather).attributes["condition_source"] == "forecast_model"
         assert hass.states.get(binary).state == "on"
         assert hass.states.get(level).state == "0"  # Upcoming only, not yet active.
         assert hass.states.get(level).attributes["highest_upcoming_level"] == 2
+        missing_gust = {
+            key: value for key, value in observation.items() if key != "native_wind_gust_speed"
+        }
+        entry.runtime_data.live.async_set_updated_data(
+            {"observation": missing_gust, "warnings": warnings}
+        )
+        await hass.async_block_till_done()
+        assert sensor("current_gust").state == "unknown"
+        assert sensor("current_gust").attributes["source"] == "observation"
+
         warnings = {
             **warnings,
             "alerts": [{**alert, "starts_at": (now - timedelta(hours=1)).isoformat()}],
@@ -250,10 +287,14 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
         await hass.async_block_till_done()
         assert hass.states.get(weather).attributes["temperature"] == 13.2
         assert hass.states.get(weather).state != "unavailable"
+        assert sensor("current_wind").state == "0.0"
+        assert sensor("today_temperature_min").state == "unavailable"
         entry.runtime_data.async_set_updated_data(forecast)
         # A warning-source failure must never produce an all-clear.
         entry.runtime_data.live.async_set_updated_data({"observation": None, "warnings": None})
         await hass.async_block_till_done()
+        assert sensor("current_wind").attributes["source"] == "forecast_model"
+        assert sensor("current_gust").state not in ("unknown", "unavailable")
         assert hass.states.get(binary).state == "unavailable"
         assert hass.states.get(level).state == "unavailable"
         assert hass.states.get(weather).attributes["current_weather_source"] == "forecast_model"
@@ -266,7 +307,24 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
         assert hass.states.get(weather).attributes["current_weather_source"] == "forecast_model"
         assert hass.states.get(binary).state == "off"
         assert hass.states.get(level).state == "0"
+        from custom_components.shmu.forecast import LOCAL_TZ
+
+        # The registered clock callback changes today's date without a source refresh.
+        tomorrow = (now.astimezone(LOCAL_TZ) + timedelta(days=1)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        daily_id = registry.async_get_entity_id("sensor", "shmu", "32397_today_temperature_min")
+        daily_entity = hass.data["sensor"].get_entity(daily_id)
+        with patch("custom_components.shmu.sensor.datetime") as clock:
+            clock.now.return_value = tomorrow.astimezone(UTC)
+            daily_entity._clock_update(tomorrow.astimezone(UTC))
+            assert (
+                sensor("today_temperature_min").attributes["forecast_date"]
+                == tomorrow.date().isoformat()
+            )
+        forecast_coordinator = entry.runtime_data
         live_coordinator = entry.runtime_data.live
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
         assert not live_coordinator._listeners
+        assert not forecast_coordinator._listeners

@@ -134,6 +134,37 @@ city/station identifiers, coordinates and warning descriptions.
 There are no credentials. Requests go to `www.shmu.sk` and `opendata.shmu.sk`;
 forecast and warning requests identify the selected public city/district. The integration is unofficial and not endorsed by SHMÚ.
 
+## Additional weather sensors
+
+Each city also exposes eight sensors:
+
+| Sensor | Values |
+| --- | --- |
+| Today forecast temperature low / high | Minimum and maximum temperature, °C |
+| Current wind speed / gust | Current wind and gust, m/s |
+| Today forecast wind minimum / maximum | Minimum and maximum forecast wind speed, m/s |
+| Today forecast gust minimum / maximum | Minimum and maximum forecast hourly gust values, m/s |
+
+The table lists native units; Home Assistant applies your unit preferences (for example,
+km/h for wind) and allows per-entity unit changes.
+
+Today's extrema use all available modeled hours for the **Europe/Bratislava calendar
+day**, including elapsed hours. They are forecast extrema, not the minimum/maximum
+observed so far. The gust minimum is the smallest hourly gust forecast, not a lull
+measurement. Values follow your selected ALADIN/ECMWF strategy.
+
+Daily sensors expose `forecast_date`, `forecast_hours`, `value_hours`, `expected_hours`
+and `coverage_complete`. Partial coverage after startup and missing fields can affect
+extrema; missing values are never treated as zero. Days with daylight-saving changes
+have 23 or 25 expected hours. Sensors advance at each hour, including local midnight.
+
+Current wind and gust follow the weather entity's observation/model fallback. A missing
+field in a fresh observation remains unknown; the `source` attribute identifies the
+source used. Daily sensors become unavailable if forecast retrieval fails; fresh
+observations can still supply current wind. These sensors appear automatically after
+updating and restarting Home Assistant. Choose their actual entity IDs from your
+SHMÚ device when adding dashboard cards or automations.
+
 ## Weather warnings
 
 Each city adds two entities on the same device:
@@ -187,7 +218,7 @@ Use **Actions → Release → Run workflow** on the `main` branch:
 
 1. Update `version` in `custom_components/shmu/manifest.json`, commit and push to
    `main`. Use `0.1.1` for a fix, `0.2.0` for a feature, etc. The initial release
-   can use the current manifest version (`0.2.0`).
+   can use the current manifest version (`0.3.0`).
 2. Enter that version **without** `v` in the workflow's **Version** field.
 3. Leave **Publish release** unchecked to test the entire workflow without creating
    a tag or release. Check it when you intend to publish.

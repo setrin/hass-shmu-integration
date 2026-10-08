@@ -80,6 +80,30 @@
     "sensor": {
       "warning_level": {
         "name": "Active warning level"
+      },
+      "today_temperature_min": {
+        "name": "Today forecast temperature low"
+      },
+      "today_temperature_max": {
+        "name": "Today forecast temperature high"
+      },
+      "current_wind": {
+        "name": "Current wind speed"
+      },
+      "current_gust": {
+        "name": "Current wind gust"
+      },
+      "today_wind_min": {
+        "name": "Today forecast wind minimum"
+      },
+      "today_wind_max": {
+        "name": "Today forecast wind maximum"
+      },
+      "today_gust_min": {
+        "name": "Today forecast gust minimum"
+      },
+      "today_gust_max": {
+        "name": "Today forecast gust maximum"
       }
     },
     "binary_sensor": {

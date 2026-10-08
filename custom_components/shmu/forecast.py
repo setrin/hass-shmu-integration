@@ -222,3 +222,25 @@ def day_coverage(hours, now):
             "expected_hours": int((b - a).total_seconds() / 3600),
         }
     return result
+
+
+def today_extreme(hours, field, reduction, now):
+    """Today's min/max of available modeled hours, with explicit coverage metadata."""
+    today = now.astimezone(LOCAL_TZ).date()
+    records = [
+        row
+        for timestamp, row in hours.items()
+        if datetime.fromtimestamp(timestamp, UTC).astimezone(LOCAL_TZ).date() == today
+    ]
+    values = [row[field] for row in records if row.get(field) is not None]
+    start = datetime.combine(today, datetime.min.time(), LOCAL_TZ).astimezone(UTC)
+    end = datetime.combine(today + timedelta(days=1), datetime.min.time(), LOCAL_TZ).astimezone(UTC)
+    expected = int((end - start).total_seconds() / 3600)
+    return {
+        "value": (min(values) if reduction == "min" else max(values)) if values else None,
+        "forecast_date": today.isoformat(),
+        "forecast_hours": len(records),
+        "value_hours": len(values),
+        "expected_hours": expected,
+        "coverage_complete": len(values) == expected,
+    }
