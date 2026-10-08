@@ -46,11 +46,7 @@ forecast types are supported.
 Repository: [setrin/hass-shmu-integration](https://github.com/setrin/hass-shmu-integration).
 
 The repository includes HACS's integration layout, `hacs.json`, the integration
-manifest, translations and local brand icons. It is initially **private**; use
-manual installation from an authenticated clone. Standard HACS installation
-requires a public repository.
-
-If the repository is made public:
+manifest, translations and local brand icons. The repository is public.
 
 1. In HACS, add `https://github.com/setrin/hass-shmu-integration` under
    **Custom repositories**, category **Integration**.
@@ -136,3 +132,24 @@ See [endpoint analysis](docs/shmu-api.md) for the verified wire format and sampl
 
 See [validation results](docs/validation.md) for test versions, the current-version
 local shutdown caveat, and checks still pending publication.
+
+## Publishing updates
+
+Use **Actions → Release → Run workflow** on the `main` branch:
+
+1. Update `version` in `custom_components/shmu/manifest.json`, commit and push to
+   `main`. Use `0.1.1` for a fix, `0.2.0` for a feature, etc. The initial release
+   can use the existing `0.1.0` version.
+2. Enter that version **without** `v` in the workflow's **Version** field.
+3. Leave **Publish release** unchecked to test the entire workflow without creating
+   a tag or release. Check it when you intend to publish.
+4. The workflow checks the branch and manifest version, rejects existing or older
+   versions, and runs lint, formatting and both Home Assistant test versions.
+5. If publishing is selected and every check passes, it creates `vX.Y.Z` and a
+   published GitHub Release with generated notes, pointing to the exact tested
+   commit. HACS can then detect the release on its next update check.
+
+No additional secret or personal access token is needed; publication uses GitHub's
+built-in token. Normal pushes run tests but do not publish. Release jobs are
+serialized, and only the publishing job has repository write permission. After
+installing an integration update through HACS, restart Home Assistant.

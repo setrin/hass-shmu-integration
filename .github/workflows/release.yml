@@ -1,0 +1,73 @@
+name: Release
+run-name: Release v${{ inputs.version }} (publish=${{ inputs.publish }})
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version already committed in manifest.json (for example 0.1.0, without v)'
+        required: true
+        type: string
+      publish:
+        description: 'Publish the release after checks pass (leave off for a dry run)'
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: shmu-release
+  cancel-in-progress: false
+jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Check branch, manifest version and existing tags
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python scripts/validate_release.py
+  checks:
+    name: Release checks
+    needs: validate
+    uses: ./.github/workflows/tests.yml
+  publish:
+    name: Publish GitHub Release
+    if: ${{ inputs.publish }}
+    needs: [validate, checks]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the tested commit with generated release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "SHMÚ Weather $RELEASE_TAG" \
+            --generate-notes \
+            --latest
+  dry-run:
+    name: Report successful dry run
+    if: ${{ !inputs.publish }}
+    needs: [validate, checks]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write result
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          printf 'Validated %s at commit %s. No tag or release was created.\n' \
+            "$RELEASE_TAG" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
