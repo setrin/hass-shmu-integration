@@ -1,5 +1,18 @@
 # Validation — 2026-10-08
 
+## Version 0.4.0 — rolling next-24-hour extrema
+
+- Python 3.13 / HA 2025.12.5: **69 tests passed**, with lint/format checks passing.
+- Six extrema sensors now use 24 hourly forecast buckets from the current UTC hour,
+  excluding the end timestamp. Temperature, wind and gust use the same window.
+- Tests verify the 07:00–07:00 use case, exclusion of past/end values, inclusion of
+  the coming night and daytime high, hourly advance, missing/zero values and a
+  constant 24-hour duration across both DST transitions.
+- HA lifecycle checks verify updated names, retained unique IDs, new window
+  attributes and clock updates. Current-value sensors and calendar-day weather
+  forecasts keep their existing behavior.
+- Prepared as 0.4.0; GitHub checks run on push and publication remains separate.
+
 ## Version 0.3.1 — recover today's earlier forecast hours
 
 - Reproduced 15.036°C with only 10/24 hours after a cold start for Veľký Šariš.

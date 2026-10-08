@@ -254,6 +254,9 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
             assert sensor(key).attributes["source"] == "forecast_model"
             assert "coverage_complete" in sensor(key).attributes
         assert sensor("today_temperature_min").attributes["unit_of_measurement"] == "°C"
+        assert "Next 24h" in sensor("today_temperature_min").attributes["friendly_name"]
+        assert sensor("today_temperature_min").attributes["expected_hours"] == 24
+        assert "forecast_date" not in sensor("today_temperature_min").attributes
         assert float(sensor("today_temperature_min").state) <= float(
             sensor("today_temperature_max").state
         )
@@ -317,7 +320,7 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
         assert hass.states.get(level).state == "0"
         from custom_components.shmu.forecast import LOCAL_TZ
 
-        # The registered clock callback changes today's date without a source refresh.
+        # The registered clock callback advances the rolling window without a source refresh.
         tomorrow = (now.astimezone(LOCAL_TZ) + timedelta(days=1)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -327,8 +330,8 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
             clock.now.return_value = tomorrow.astimezone(UTC)
             daily_entity._clock_update(tomorrow.astimezone(UTC))
             assert (
-                sensor("today_temperature_min").attributes["forecast_date"]
-                == tomorrow.date().isoformat()
+                sensor("today_temperature_min").attributes["window_start"]
+                == tomorrow.astimezone(UTC).isoformat()
             )
         forecast_coordinator = entry.runtime_data
         live_coordinator = entry.runtime_data.live

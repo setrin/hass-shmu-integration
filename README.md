@@ -143,31 +143,41 @@ Each city also exposes nine sensors:
 
 | Sensor | Values |
 | --- | --- |
-| Today forecast temperature low / high | Minimum and maximum temperature, °C |
+| Next 24h temperature low / high | Minimum and maximum temperature, °C |
 | Current temperature | Current temperature, °C |
 | Current wind speed / gust | Current wind and gust, m/s |
-| Today forecast wind minimum / maximum | Minimum and maximum forecast wind speed, m/s |
-| Today forecast gust minimum / maximum | Minimum and maximum forecast hourly gust values, m/s |
+| Next 24h wind minimum / maximum | Minimum and maximum forecast wind speed, m/s |
+| Next 24h gust minimum / maximum | Minimum and maximum forecast hourly gust values, m/s |
 
 The table lists native units; Home Assistant applies your unit preferences (for example,
 km/h for wind) and allows per-entity unit changes.
 
-Today's extrema use all available modeled hours for the **Europe/Bratislava calendar
-day**, including elapsed hours. They are forecast extrema, not the minimum/maximum
-observed so far. The gust minimum is the smallest hourly gust forecast, not a lull
-measurement. Values follow your selected ALADIN/ECMWF strategy.
+Forecast extrema use the **next 24 hourly forecast buckets**, beginning with the
+current hour. At 07:00, the window is 07:00 today through 07:00 tomorrow (end
+exclusive): today's daytime high and the upcoming overnight low. At 07:35 it still
+starts at 07:00; at 08:00 it advances to 08:00–08:00. Past-night values drop out as
+the window advances. These are forecasts, not observed extrema. The gust minimum
+is the smallest hourly gust forecast, not a lull measurement. Values follow your
+selected ALADIN/ECMWF strategy.
 
-Daily sensors expose `forecast_date`, `forecast_hours`, `value_hours`, `expected_hours`
-and `coverage_complete`. Unavailable older runs and missing fields can leave partial coverage and affect
-extrema; missing values are never treated as zero. Days with daylight-saving changes
-have 23 or 25 expected hours. Sensors advance at each hour, including local midnight.
+These sensors expose `window_start` and `window_end` in UTC, plus `forecast_hours`,
+`value_hours`, `expected_hours` (always 24) and `coverage_complete`. Missing fields or
+short forecast coverage can affect extrema; missing values are never treated as
+zero. The duration stays 24 real hours across daylight-saving changes, even when
+local start/end clocks differ by an hour. The weather card's **daily** forecasts
+continue to use Slovak calendar days; they are separate from these rolling sensors.
 
-Current temperature, wind and gust follow the weather entity's observation/model fallback. A missing
-field in a fresh observation remains unknown; the `source` attribute identifies the
-source used. Daily sensors become unavailable if forecast retrieval fails; fresh
-observations can still supply current wind. These sensors appear automatically after
-updating and restarting Home Assistant. Choose their actual entity IDs from your
-SHMÚ device when adding dashboard cards or automations.
+Existing sensor entity IDs are retained on upgrade, even if they contain `today`,
+so dashboards, watch complications and automations continue referencing the same
+entities. Their default display names change to “Next 24h…”. Any names you customized
+remain yours to edit. The old `forecast_date` attribute is replaced by the window
+start/end attributes.
+
+Current temperature, wind and gust follow the weather entity's observation/model
+fallback. A missing field in a fresh observation remains unknown; the `source`
+attribute identifies the source used. Forecast sensors become unavailable if
+forecast retrieval fails; fresh observations can still supply current values.
+Update and restart Home Assistant, then choose the sensors on your SHMÚ device.
 
 ## Weather warnings
 
@@ -222,7 +232,7 @@ Use **Actions → Release → Run workflow** on the `main` branch:
 
 1. Update `version` in `custom_components/shmu/manifest.json`, commit and push to
    `main`. Use `0.1.1` for a fix, `0.2.0` for a feature, etc. The initial release
-   can use the current manifest version (`0.3.1`).
+   can use the current manifest version (`0.4.0`).
 2. Enter that version **without** `v` in the workflow's **Version** field.
 3. Leave **Publish release** unchecked to test the entire workflow without creating
    a tag or release. Check it when you intend to publish.

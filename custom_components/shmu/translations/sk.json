@@ -81,32 +81,32 @@
       "warning_level": {
         "name": "Aktuálny stupeň výstrahy"
       },
-      "today_temperature_min": {
-        "name": "Dnešná minimálna predpovedaná teplota"
-      },
-      "today_temperature_max": {
-        "name": "Dnešná maximálna predpovedaná teplota"
-      },
       "current_wind": {
         "name": "Aktuálna rýchlosť vetra"
       },
       "current_gust": {
         "name": "Aktuálny náraz vetra"
       },
-      "today_wind_min": {
-        "name": "Dnešná minimálna predpovedaná rýchlosť vetra"
-      },
-      "today_wind_max": {
-        "name": "Dnešná maximálna predpovedaná rýchlosť vetra"
-      },
-      "today_gust_min": {
-        "name": "Dnešný minimálny predpovedaný náraz vetra"
-      },
-      "today_gust_max": {
-        "name": "Dnešný maximálny predpovedaný náraz vetra"
-      },
       "current_temperature": {
         "name": "Aktuálna teplota"
+      },
+      "next_24h_temperature_min": {
+        "name": "Najnižšia teplota v nasledujúcich 24 h"
+      },
+      "next_24h_temperature_max": {
+        "name": "Najvyššia teplota v nasledujúcich 24 h"
+      },
+      "next_24h_wind_min": {
+        "name": "Minimálna rýchlosť vetra v nasledujúcich 24 h"
+      },
+      "next_24h_wind_max": {
+        "name": "Maximálna rýchlosť vetra v nasledujúcich 24 h"
+      },
+      "next_24h_gust_min": {
+        "name": "Minimálny náraz vetra v nasledujúcich 24 h"
+      },
+      "next_24h_gust_max": {
+        "name": "Maximálny náraz vetra v nasledujúcich 24 h"
       }
     },
     "binary_sensor": {

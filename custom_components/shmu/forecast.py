@@ -244,3 +244,26 @@ def today_extreme(hours, field, reduction, now):
         "expected_hours": expected,
         "coverage_complete": len(values) == expected,
     }
+
+
+def next_24h_extreme(hours, field, reduction, now):
+    """Extrema over 24 hourly buckets starting with the current UTC hour.
+
+    The end is exclusive. UTC arithmetic keeps the duration at 24 hours across
+    local daylight-saving changes; this is not a calendar-day aggregate.
+    """
+    start = now.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    end = start + timedelta(hours=24)
+    records = [
+        hours[t] for t in range(int(start.timestamp()), int(end.timestamp()), 3600) if t in hours
+    ]
+    values = [row[field] for row in records if row.get(field) is not None]
+    return {
+        "value": (min(values) if reduction == "min" else max(values)) if values else None,
+        "window_start": start.isoformat(),
+        "window_end": end.isoformat(),
+        "forecast_hours": len(records),
+        "value_hours": len(values),
+        "expected_hours": 24,
+        "coverage_complete": len(values) == 24,
+    }

@@ -231,3 +231,58 @@ def test_today_extrema_complete_coverage_on_dst_days(start, count):
     high = today_extreme(hours, "native_wind_gust_speed", "max", now + timedelta(hours=12))
     assert high["value"] == count - 1
     assert high["coverage_complete"] and high["expected_hours"] == count
+
+
+def test_rolling_24h_excludes_past_and_end_and_advances_hourly():
+    from custom_components.shmu.forecast import next_24h_extreme
+
+    # 07:00 Slovak summer time: today's high and the upcoming night's low.
+    now = datetime(2026, 10, 9, 5, 37, tzinfo=UTC)
+    start = int(now.replace(minute=0).timestamp())
+    hours = {start + i * 3600: {"native_temperature": 10} for i in range(-1, 25)}
+    hours[start - 3600]["native_temperature"] = -20  # Already passed.
+    hours[start + 7 * 3600]["native_temperature"] = 22  # Today at 14:00 local.
+    hours[start + 22 * 3600]["native_temperature"] = 2  # Tomorrow at 05:00 local.
+    hours[start + 24 * 3600]["native_temperature"] = -5  # Exclusive endpoint.
+    low = next_24h_extreme(hours, "native_temperature", "min", now)
+    assert low["value"] == 2 and low["coverage_complete"]
+    assert low["window_start"] == "2026-10-09T05:00:00+00:00"
+    assert low["window_end"] == "2026-10-10T05:00:00+00:00"
+    assert next_24h_extreme(hours, "native_temperature", "max", now)["value"] == 22
+    assert (
+        next_24h_extreme(hours, "native_temperature", "min", now + timedelta(hours=1))["value"]
+        == -5
+    )
+
+
+@pytest.mark.parametrize("start", ["2026-03-28T18:00:00+00:00", "2026-10-24T18:00:00+00:00"])
+def test_rolling_24h_duration_is_constant_across_dst(start):
+    from custom_components.shmu.forecast import next_24h_extreme
+
+    now = datetime.fromisoformat(start)
+    hours = {
+        int((now + timedelta(hours=i)).timestamp()): {"native_wind_gust_speed": i}
+        for i in range(25)
+    }
+    summary = next_24h_extreme(hours, "native_wind_gust_speed", "max", now)
+    assert summary["value"] == 23
+    assert summary["forecast_hours"] == summary["expected_hours"] == 24
+    assert summary["coverage_complete"]
+    assert datetime.fromisoformat(summary["window_end"]) - now == timedelta(hours=24)
+
+
+def test_rolling_partial_and_missing_values_do_not_become_zero():
+    from custom_components.shmu.forecast import next_24h_extreme
+
+    now = datetime(2026, 10, 9, 5, tzinfo=UTC)
+    start = int(now.timestamp())
+    hours = {
+        start: {"native_wind_speed": 0},
+        start + 3600: {"native_wind_speed": 4},
+        start + 7200: {},
+    }
+    summary = next_24h_extreme(hours, "native_wind_speed", "min", now)
+    assert summary["value"] == 0 and summary["value_hours"] == 2
+    assert summary["forecast_hours"] == 3 and not summary["coverage_complete"]
+    assert next_24h_extreme(hours, "native_wind_gust_speed", "min", now)["value"] is None
+    assert next_24h_extreme({}, "native_temperature", "max", now)["value"] is None

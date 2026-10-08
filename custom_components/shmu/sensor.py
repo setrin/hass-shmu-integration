@@ -1,4 +1,4 @@
-"""SHMÚ warning level, current weather and today's forecast extrema."""
+"""SHMÚ warning level, current weather and next-24-hour forecast extrema."""
 
 from datetime import UTC, datetime
 
@@ -11,7 +11,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_STATION, DOMAIN
 from .current import current_forecast, fresh_observation
-from .forecast import today_extreme
+from .forecast import next_24h_extreme
 from .warning_entity import WarningEntity
 
 
@@ -50,7 +50,7 @@ VALUES = (
 
 
 class WeatherValue(CoordinatorEntity, SensorEntity):
-    """Use the same current source and normalized daily forecast as the weather entity."""
+    """Use the same current source and normalized hourly forecast as the weather entity."""
 
     _attr_has_entity_name = True
     _attr_attribution = "Weather data by SHMÚ"
@@ -61,7 +61,8 @@ class WeatherValue(CoordinatorEntity, SensorEntity):
         self.field = field
         self.reduction = reduction
         self._attr_unique_id = f"{entry.data[CONF_STATION]}_{key}"
-        self._attr_translation_key = key
+        # Keep existing unique/entity IDs so watch complications and automations survive.
+        self._attr_translation_key = key.replace("today_", "next_24h_", 1) if reduction else key
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry.data[CONF_STATION])})
         temperature = field == "native_temperature"
         self._attr_device_class = (
@@ -79,7 +80,7 @@ class WeatherValue(CoordinatorEntity, SensorEntity):
             self.async_on_remove(
                 self.coordinator.live.async_add_listener(self._handle_coordinator_update)
             )
-        # Advance the forecast hour and Slovak date without waiting for a network refresh.
+        # Slide the 24-hour forecast window without waiting for a network refresh.
         self.async_on_remove(
             async_track_utc_time_change(self.hass, self._clock_update, minute=0, second=0)
         )
@@ -90,7 +91,7 @@ class WeatherValue(CoordinatorEntity, SensorEntity):
 
     @property
     def summary(self):
-        return today_extreme(
+        return next_24h_extreme(
             self.coordinator.data.hours if self.coordinator.data else {},
             self.field,
             self.reduction,

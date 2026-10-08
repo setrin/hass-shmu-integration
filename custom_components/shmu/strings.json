@@ -81,32 +81,32 @@
       "warning_level": {
         "name": "Active warning level"
       },
-      "today_temperature_min": {
-        "name": "Today forecast temperature low"
-      },
-      "today_temperature_max": {
-        "name": "Today forecast temperature high"
-      },
       "current_wind": {
         "name": "Current wind speed"
       },
       "current_gust": {
         "name": "Current wind gust"
       },
-      "today_wind_min": {
-        "name": "Today forecast wind minimum"
-      },
-      "today_wind_max": {
-        "name": "Today forecast wind maximum"
-      },
-      "today_gust_min": {
-        "name": "Today forecast gust minimum"
-      },
-      "today_gust_max": {
-        "name": "Today forecast gust maximum"
-      },
       "current_temperature": {
         "name": "Current temperature"
+      },
+      "next_24h_temperature_min": {
+        "name": "Next 24h temperature low"
+      },
+      "next_24h_temperature_max": {
+        "name": "Next 24h temperature high"
+      },
+      "next_24h_wind_min": {
+        "name": "Next 24h wind minimum"
+      },
+      "next_24h_wind_max": {
+        "name": "Next 24h wind maximum"
+      },
+      "next_24h_gust_min": {
+        "name": "Next 24h gust minimum"
+      },
+      "next_24h_gust_max": {
+        "name": "Next 24h gust maximum"
       }
     },
     "binary_sensor": {
