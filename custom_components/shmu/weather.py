@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_STATION, DOMAIN
 from .forecast import condition, daily_forecasts, day_coverage
+from .live import MAX_OBSERVATION_AGE
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -19,12 +20,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class ShmuWeather(CoordinatorEntity, WeatherEntity):
-    """Modeled current weather, not a station observation."""
+    """Measured weather with an explicit model fallback and modeled sky condition."""
 
     _attr_has_entity_name = True
     _attr_name = None
     _attr_attribution = "Forecast data by SHMÚ (Slovenský hydrometeorologický ústav)"
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_visibility_unit = UnitOfLength.KILOMETERS
     _attr_native_pressure_unit = UnitOfPressure.HPA
     _attr_native_wind_speed_unit = UnitOfSpeed.METERS_PER_SECOND
     _attr_native_precipitation_unit = UnitOfLength.MILLIMETERS
@@ -45,6 +47,36 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
             configuration_url=f"https://www.shmu.sk/sk/?page=2673&nwp_mesto={entry.data[CONF_STATION]}",
         )
 
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.live.async_add_listener(self._handle_coordinator_update)
+        )
+
+    @property
+    def _observation(self):
+        live = self.coordinator.live
+        row = (live.data or {}).get("observation") if live.last_update_success else None
+        if (
+            row
+            and datetime.now(UTC) - datetime.fromisoformat(row["measured_at"])
+            <= MAX_OBSERVATION_AGE
+        ):
+            return row
+        return None
+
+    @property
+    def _values(self):
+        return self._observation or self._current
+
+    @property
+    def humidity(self):
+        return self._values.get("humidity")
+
+    @property
+    def native_visibility(self):
+        return self._values.get("native_visibility")
+
     @property
     def _current(self):
         timestamp = int(datetime.now(UTC).timestamp()) // 3600 * 3600
@@ -52,35 +84,38 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
 
     @property
     def available(self):
-        return super().available and bool(self._current)
+        return bool(self._observation) or (super().available and bool(self._current))
 
     @property
     def native_temperature(self):
-        return self._current.get("native_temperature")
+        return self._values.get("native_temperature")
 
     @property
     def native_pressure(self):
-        return self._current.get("native_pressure")
+        return self._values.get("native_pressure")
 
     @property
     def native_wind_speed(self):
-        return self._current.get("native_wind_speed")
+        return self._values.get("native_wind_speed")
 
     @property
     def native_wind_gust_speed(self):
-        return self._current.get("native_wind_gust_speed")
+        return self._values.get("native_wind_gust_speed")
 
     @property
     def wind_bearing(self):
-        return self._current.get("wind_bearing")
+        return self._values.get("wind_bearing")
 
     @property
     def cloud_coverage(self):
-        return self._current.get("cloud_coverage")
+        return self._current.get("cloud_coverage") if self.coordinator.last_update_success else None
 
     @property
     def condition(self):
-        return condition(self._current, elevation(self._observer, datetime.now(UTC)) > 0)
+        return condition(
+            self._current if self.coordinator.last_update_success else {},
+            elevation(self._observer, datetime.now(UTC)) > 0,
+        )
 
     @property
     def extra_state_attributes(self):
@@ -88,7 +123,11 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
         if not data:
             return {}
         return {
-            "current_weather_source": "forecast_model",
+            "current_weather_source": "observation" if self._observation else "forecast_model",
+            "condition_source": "forecast_model" if self.coordinator.last_update_success else None,
+            "observation_station": (self._observation or {}).get("station"),
+            "observation_distance_km": (self._observation or {}).get("distance_km"),
+            "observation_time": (self._observation or {}).get("measured_at"),
             "forecast_mode": self.coordinator.mode,
             "current_model": self._current.get("model"),
             "current_forecast_time": self._current.get("datetime"),
@@ -109,6 +148,8 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
         self.hass.async_create_task(self.async_update_listeners(None))
 
     async def async_forecast_hourly(self):
+        if not self.coordinator.last_update_success:
+            return None
         now = int(datetime.now(UTC).timestamp()) // 3600 * 3600
         result = []
         for timestamp, record in self.coordinator.data.hours.items():
@@ -122,4 +163,6 @@ class ShmuWeather(CoordinatorEntity, WeatherEntity):
         return result
 
     async def async_forecast_daily(self):
+        if not self.coordinator.last_update_success:
+            return None
         return daily_forecasts(self.coordinator.data.hours, datetime.now(UTC))

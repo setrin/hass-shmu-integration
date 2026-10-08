@@ -1,8 +1,8 @@
 # SHMÚ Weather for Home Assistant
 
 A custom Home Assistant integration for Slovak weather forecasts from **SHMÚ**.
-Select a city in the UI and get a weather entity with current **modeled** conditions,
-hourly forecasts and daily forecasts. No API key is needed.
+Select a city in the UI for measured current weather, hourly/daily forecasts,
+and district weather warnings. No API key is needed.
 
 ## Features
 
@@ -11,6 +11,9 @@ hourly forecasts and daily forecasts. No API key is needed.
 - **Combined** (default): ALADIN where available, then ECMWF for the longer range.
 - **ALADIN only** or **ECMWF only**, selectable during setup or in integration options.
 - Temperature, pressure, wind speed, gusts, direction, cloud cover and precipitation.
+- Current measurements from a nearby station, including humidity and visibility when available.
+- Active and upcoming district warnings, with severity, validity periods and descriptions.
+- Downloadable diagnostics that omit the selected location.
 - English and Slovak setup text.
 - Published-run discovery, cached forecast files, fallback to earlier usable runs,
   and continued operation when only one model is available in combined mode.
@@ -26,7 +29,7 @@ Requires Home Assistant **2025.12 or newer**.
 4. Select your city and forecast source.
 5. Add the resulting weather entity to a weather forecast card.
 
-Change the model strategy using the integration's **Configure** option. To change
+Change the model strategy and observation station using the integration's **Configure** option. To change
 cities, add the new city and remove the old entry if no longer needed.
 
 For a dashboard card, use the actual entity ID shown by Home Assistant:
@@ -58,11 +61,24 @@ See [HACS integration requirements](https://www.hacs.xyz/docs/publish/integratio
 
 ## What the values mean
 
-**Current weather is an estimate from the forecast for the current hour, not a live
-station reading.** The supplied endpoints do not provide live observations or
-humidity. Conditions/icons are a conservative heuristic based on cloud cover,
-rain and snow; clear sky uses the selected city's solar elevation for day/night.
-They do not claim to detect fog, lightning or other unprovided phenomena.
+Current temperature, humidity, wind, visibility and pressure use the newest usable
+reading from the selected observation station. By default, this is the geographically
+nearest station in our 27-station synoptic catalogue. A nearby station is **not a
+measurement in your selected city**. Its name, distance and measurement time are
+shown in weather attributes. For Veľký Šariš, automatic selection is **Kojšovská
+hoľa**, a mountain station; use Configure to choose a station more representative
+of your location (for example Košice), or select **Forecast model only**.
+
+Missing measured fields remain unknown. Station pressure is approximately reduced
+to sea level using station elevation and measured temperature. The condition icon
+and cloud cover still come from the forecast, explicitly labeled by
+`condition_source`; the observation feed has no documented cloud-cover field.
+Icons use cloud cover, modeled rain and snow, with solar elevation for day/night.
+They do not claim to detect observed fog or lightning.
+
+Measurements are checked every **5 minutes**. If retrieval fails or the newest
+usable reading is more than **30 minutes** old, current values fall back to the
+forecast, with `current_weather_source` reflecting the change.
 
 ALADIN has hourly data, about 102 hours in the inspected run. ECMWF has ensemble
 statistics out to 240 hours. We use the **median** for scalar ECMWF fields and the
@@ -83,9 +99,11 @@ Daily forecasts use `Europe/Bratislava` calendar days, including 23-/25-hour DST
 days. High/low are extrema of the hourly temperature series, not extrema across
 ensemble members. Daily wind/gust values are the maxima of that day's normalized
 series. Daily rainfall is the sum of available hourly estimates. Today's forecast
-includes already elapsed modeled hours when available. First/last days can be
-partial; inspect `forecast_day_coverage` (actual versus expected hours) before
-using totals as full-day values. The UI's daily high/low can understate true daily
+includes already elapsed modeled hours when available and retains them in memory
+when a newer model run is fetched. Today can be partial, especially after a restart;
+inspect `forecast_day_coverage` before treating today's totals as full-day values.
+Incomplete future days are omitted from daily cards, while their hours remain in
+the hourly forecast. A wet hour remains visible in the day's condition icon. The UI's daily high/low can understate true daily
 extremes because it uses sampled temperatures. No extrapolation is performed
 beyond each model's temperature horizon. Missing values stay unknown.
 
@@ -97,19 +115,48 @@ at their initialization time. ALADIN's index currently lists 00/06/12/18 UTC;
 ECMWF lists 00/12 UTC. If the index fails, it tries the four latest candidate cycles.
 A missing/invalid new file falls back to an earlier run, then an in-memory cached run.
 Runs older than **48 hours**, future runs, and runs without current-hour coverage
-are rejected. Without any usable selected model, the entity becomes unavailable.
+are rejected. Without any usable forecast or fresh observation, the entity becomes unavailable.
 The cache is in memory and does not survive restart.
 
 The weather entity exposes these useful state attributes:
 
-- `current_weather_source`, `current_model`, `current_forecast_time`
+- `current_weather_source`, `condition_source`, `current_model`, `current_forecast_time`
+- `observation_station`, `observation_distance_km`, `observation_time`
 - `forecast_mode`, `model_runs` (initialization times in UTC)
 - `degraded_models` (models falling back, unavailable, or using a failed index)
 - `aladin_forecast_end`, `hourly_values_interpolated`
 - `forecast_day_coverage`
 
-There are no credentials. Requests go to `www.shmu.sk` and identify the selected
-public city ID. The integration is unofficial and not endorsed by SHMÚ.
+Download diagnostics from the integration's menu under Devices & services. The
+report contains source availability, model timestamps and counts, but excludes
+city/station identifiers, coordinates and warning descriptions.
+
+There are no credentials. Requests go to `www.shmu.sk` and `opendata.shmu.sk`;
+forecast and warning requests identify the selected public city/district. The integration is unofficial and not endorsed by SHMÚ.
+
+## Weather warnings
+
+Each city adds two entities on the same device:
+
+- **Weather warning**: on when an active **or upcoming** meteorological warning is
+  published for the city's district. It can therefore alert you before an event starts.
+- **Active warning level**: highest currently active level, **0–3**. Zero means
+  no active warning; check upcoming warnings before treating that as an all-clear.
+
+Both expose `active_warnings`, `upcoming_warnings`, `highest_upcoming_level`,
+`district`, `last_checked` and `source_url`. Each warning includes event, severity,
+start/end timestamps and SHMÚ's Slovak description. Add these entities to a dashboard
+or use the binary sensor as an automation trigger. No notification is sent automatically.
+
+Warnings refresh every **5 minutes**, so start/end transitions can lag by that amount.
+Network, district-resolution or parsing failures make both entities **unavailable**,
+not clear. A snapshot older than 15 minutes is also unavailable. Warnings are selected
+using SHMÚ's own district boundaries and your forecast city's coordinates, independently
+of the observation station. There is no radar, hydrological or smog-warning support.
+
+The current website district page is used because the open-data CAP directory was
+stale when checked on 2026-10-08. This is an unversioned HTML source; incompatible
+layout changes are rejected. Use `source_url` to read the official warning page.
 
 ## Development
 
@@ -124,7 +171,8 @@ python3.13 -m venv .venv
 Tests use captured source fixtures and mocked HTTP. Home Assistant lifecycle tests
 use real configuration flows, platform setup and weather forecast services in an
 isolated instance; they do not require your running Home Assistant installation.
-The CI workflow runs the same checks. Captured JSON files remain SHMÚ source data;
+CI also runs Home Assistant hassfest and HACS validation. The HACS brands check
+is excluded because the integration ships local brand assets; other checks run. Captured JSON files remain SHMÚ source data;
 they are included as development fixtures and are not bundled into the installed
 integration folder.
 
@@ -139,12 +187,13 @@ Use **Actions → Release → Run workflow** on the `main` branch:
 
 1. Update `version` in `custom_components/shmu/manifest.json`, commit and push to
    `main`. Use `0.1.1` for a fix, `0.2.0` for a feature, etc. The initial release
-   can use the existing `0.1.0` version.
+   can use the current manifest version (`0.2.0`).
 2. Enter that version **without** `v` in the workflow's **Version** field.
 3. Leave **Publish release** unchecked to test the entire workflow without creating
    a tag or release. Check it when you intend to publish.
 4. The workflow checks the branch and manifest version, rejects existing or older
-   versions, and runs lint, formatting and both Home Assistant test versions.
+   versions, and runs lint, formatting, both Home Assistant test versions, hassfest
+   and HACS validation.
 5. If publishing is selected and every check passes, it creates `vX.Y.Z` and a
    published GitHub Release with generated notes, pointing to the exact tested
    commit. HACS can then detect the release on its next update check.
@@ -153,3 +202,11 @@ No additional secret or personal access token is needed; publication uses GitHub
 built-in token. Normal pushes run tests but do not publish. Release jobs are
 serialized, and only the publishing job has repository write permission. After
 installing an integration update through HACS, restart Home Assistant.
+
+## Attribution
+
+Weather data and warning text are provided by SHMÚ. The small observation-station
+catalogue and distance helper are adapted from [vaind/ha-shmu](https://github.com/vaind/ha-shmu)
+under the MIT license; its copyright and license are included in the installed
+integration's `NOTICE`. The integration supplies the missing public Sectigo TLS
+intermediate for the observation server, retaining certificate and hostname verification.

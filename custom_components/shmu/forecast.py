@@ -163,7 +163,7 @@ def condition(record, is_day=True):
 def daily_forecasts(hours, now):
     """Aggregate modeled hours by Slovak calendar day (including 23/25-hour DST days).
 
-    Today includes past modeled hours where available. Edge days can be partial.
+    Today includes past modeled hours where available. Incomplete future days are omitted.
     Temperature extrema are extrema of sampled/interpolated temperatures, not
     ensemble minimum/maximum members or SHMÚ interval-extreme fields.
     """
@@ -176,6 +176,10 @@ def daily_forecasts(hours, now):
     result = []
     for day, records in sorted(grouped.items()):
         midnight = datetime.combine(day, datetime.min.time(), LOCAL_TZ)
+        end = datetime.combine(day + timedelta(days=1), datetime.min.time(), LOCAL_TZ)
+        expected = int((end.astimezone(UTC) - midnight.astimezone(UTC)).total_seconds() / 3600)
+        if day > today and len(records) != expected:
+            continue
         item = {
             "datetime": midnight.astimezone(UTC).isoformat(),
             "native_temperature": max(r["native_temperature"] for r in records),
@@ -191,13 +195,11 @@ def daily_forecasts(hours, now):
             values = [r[field] for r in records if field in r]
             if values:
                 item[field] = max(values)
-        # Daily rainfall total must not be interpreted as an hourly intensity.
-        icon_record = dict(item)
-        if "native_precipitation" in icon_record:
-            icon_record["native_precipitation"] /= len(records)
-        if "snowfall" in icon_record:
-            icon_record["snowfall"] /= len(records)
-        if icon := condition(icon_record):
+        # A wet hour must remain visible even when the rest of the day is dry.
+        wet_priority = ("snowy-rainy", "snowy", "pouring", "rainy")
+        icons = {condition(record) for record in records}
+        icon = next((value for value in wet_priority if value in icons), condition(item))
+        if icon:
             item["condition"] = icon
         item.pop("snowfall", None)
         result.append(item)

@@ -29,3 +29,18 @@ jobs:
       - run: pytest -q
         env:
           LITELLM_LOCAL_MODEL_COST_MAP: 'True'
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: home-assistant/actions/hassfest@master
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: hacs/action@main
+        with:
+          category: integration
+          comment: "false"
+          # Icons ship in custom_components/shmu/brand (HA 2026.3+).
+          ignore: brands

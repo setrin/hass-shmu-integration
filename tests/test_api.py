@@ -122,3 +122,23 @@ async def test_wrong_station_payload_is_rejected(fixture_data):
             mock.get(ALADIN, payload=data)
             with pytest.raises(ShmuError):
                 await ShmuClient(session, "32397").fetch("aladin", NOW)
+
+
+async def test_new_run_keeps_earlier_hours_today(fixture_data):
+    from unittest.mock import AsyncMock
+
+    from custom_components.shmu.forecast import ModelRun, parse_run
+
+    client = ShmuClient(None, "32397")
+    client._json = AsyncMock(return_value=products())
+    first = parse_run(fixture_data("aladin"), "aladin", "32397")
+    noon = NOW.replace(hour=12)
+    newer = ModelRun(
+        "aladin", noon, {t: r for t, r in first.hours.items() if t >= int(noon.timestamp())}
+    )
+    client._model = AsyncMock(side_effect=[(first, False), (newer, False)])
+    before = await client.fetch("aladin", NOW)
+    after = await client.fetch("aladin", noon)
+    assert min(after.hours) == min(before.hours)
+    assert after.runs["aladin"].initialized == noon
+    assert len(client._past_hours) <= 25

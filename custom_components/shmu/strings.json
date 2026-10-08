@@ -4,10 +4,11 @@
     "step": {
       "user": {
         "title": "Select a Slovak city",
-        "description": "Current weather is a forecast model estimate, not a live observation. Combined mode uses ALADIN first and ECMWF for the extended forecast.",
+        "description": "Uses measurements from the nearest station, with a forecast fallback. Warnings cover the city’s district. You can change the observation station in options.",
         "data": {
           "station_id": "City",
-          "forecast_mode": "Forecast source"
+          "forecast_mode": "Forecast source",
+          "observation_station": "Current weather station"
         }
       }
     },
@@ -22,9 +23,10 @@
   "options": {
     "step": {
       "init": {
-        "title": "Forecast source",
+        "title": "Weather sources",
         "data": {
-          "forecast_mode": "Forecast source"
+          "forecast_mode": "Forecast source",
+          "observation_station": "Current weather station"
         }
       }
     },
@@ -38,6 +40,51 @@
         "combined": "ALADIN, then ECMWF",
         "aladin": "ALADIN only",
         "ecmwf": "ECMWF only"
+      }
+    },
+    "observation_station": {
+      "options": {
+        "auto": "Automatic (nearest station)",
+        "model": "Forecast model only",
+        "11812": "Malý Javorník (586 m)",
+        "11813": "Bratislava - Koliba (286 m)",
+        "11816": "Bratislava - Letisko (131 m)",
+        "11819": "Jaslovské Bohunice (176 m)",
+        "11826": "Piešťany (163 m)",
+        "11841": "Dolný Hričov (309 m)",
+        "11855": "Nitra (135 m)",
+        "11856": "Mochovce (261 m)",
+        "11858": "Hurbanovo (115 m)",
+        "11867": "Prievidza (260 m)",
+        "11880": "Dudince (139 m)",
+        "11894": "Donovaly (992 m)",
+        "11900": "Žiar nad Hronom (275 m)",
+        "11903": "Sliač (313 m)",
+        "11916": "Chopok (2005 m)",
+        "11918": "Liesek (692 m)",
+        "11927": "Boľkovce (214 m)",
+        "11930": "Lomnický Štít (2635 m)",
+        "11933": "Štrbské Pleso (1322 m)",
+        "11934": "Poprad (694 m)",
+        "11938": "Telgárt (901 m)",
+        "11952": "Gánovce (703 m)",
+        "11958": "Kojšovská hoľa (1244 m)",
+        "11968": "Košice (230 m)",
+        "11976": "Tisinec (216 m)",
+        "11978": "Trebišov (105 m)",
+        "11993": "Kamenica nad Cirochou (176 m)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "warning_level": {
+        "name": "Active warning level"
+      }
+    },
+    "binary_sensor": {
+      "weather_warning": {
+        "name": "Weather warning"
       }
     }
   }

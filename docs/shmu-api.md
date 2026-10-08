@@ -135,9 +135,44 @@ partial interval at the handoff cannot be counted in full on top of ALADIN rain.
 Interpolation does not increase the model's information content. Adding marginal
 ensemble medians over time does not produce the exact ensemble median of the daily
 rainfall total. Daily highs/lows use the normalized temperature series rather than
-the provided interval-extreme fields; they are approximate. First/last days may be
-partial and this is exposed in the entity attributes.
+the provided interval-extreme fields; they are approximate. Today may be partial and this is exposed in the entity attributes. Incomplete
+future days are omitted from daily forecasts.
 
 The public web endpoints have no versioned contract established by this research.
 Schema/unit/identity validation rejects incompatible data, and the fixture tests
 make the observed contract explicit.
+
+
+## Observations and warnings (verified 2026-10-08)
+
+- Observation index: `https://opendata.shmu.sk/meteorology/climate/now/data/`.
+  Date folders contain `aws1min - YYYY-MM-DD HH-MM-SS.json` files; the client
+  discovers available names and retries at most three snapshots on each of two dates.
+  The filename clock is not used as the measurement timestamp.
+- [Observation metadata](https://opendata.shmu.sk/meteorology/climate/now/metadata/aws1min_metadata.json)
+  declares `minuta` as SEC (fixed CET, UTC+1, including summer). Rows are keyed by
+  `ind_kli`, unrelated to the forecast city ID. `t` is Celsius, `tlak` hPa,
+  `vie_pr_rych` / `vie_max_rych` m/s, `vie_pr_smer` degrees, `vlh_rel` percent,
+  and `dohl` metres (converted to km). `tlak` is reduced to sea level using station
+  elevation. Values are minute statistics, not daily extrema.
+- The observation server omitted its intermediate certificate in live testing.
+  The integration loads Sectigo Public Server Authentication CA DV R36 into an
+  independent Home Assistant TLS context, retaining trusted-root and hostname checks.
+  SHA-256: `8C54C334B66BA4E426772AF4A3F9136C19A1AEC729FDB28C535C07A5A4EF22E0`.
+- [SHMÚ's warning map](https://www.shmu.sk/assets/maps/meteo_map.json) is a GeoJSON
+  catalogue with `SKRATKA`, `ID` and `NAZOV_OKRE` properties. Point-in-polygon
+  lookup maps 49.04, 21.2 (Veľký Šariš) to `PO`, Prešov.
+- Current district detail:
+  `https://www.shmu.sk/popups/meteo/vystrahy.php?region=PO&page=987`.
+  The table caption validates the district. Warning cells have `warn_1`–`warn_3`,
+  event text, civil Slovak start/end times and description. Dates are converted
+  with Europe/Bratislava, unlike the observation clock. Repeated identical warnings
+  are deduplicated; expired warnings are dropped; future ones remain available.
+- The CAP directory `https://opendata.shmu.sk/meteorology/weather/alerts/cap/`
+  only listed September 7/9 during the October 8 check. The live website carried
+  an October 8/9 Bratislava wind warning; the implementation therefore does not
+  equate that stale CAP listing with a current all-clear.
+- Parsing rejects mismatched districts, malformed warnings and unknown table layouts.
+  A successful empty current district table is a clear result; a retrieval/parsing
+  failure is unavailable. The source has no explicit freshness timestamp, so
+  `last_checked` means successful retrieval, not the time SHMÚ issued the snapshot.

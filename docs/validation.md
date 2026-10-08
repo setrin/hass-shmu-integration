@@ -1,46 +1,47 @@
 # Validation — 2026-10-08
 
-## Clean local checks
+## Version 0.2.0
 
-- Python 3.13.14, Home Assistant 2025.12.5: **27 tests passed**, exit status 0.
-- Ruff lint and formatting checks passed.
-- Live SHMÚ client check succeeded for city `32397`: both ALADIN and ECMWF selected
-  the published `2026-10-08T12:00:00Z` runs, with no degraded models.
-- Live decoding produced modeled current weather and 11 local-date forecast entries
-  spanning the 10-day horizon (edge dates can be partial).
-- Repository destination: `https://github.com/setrin/hass-shmu-integration` (public).
+- Python 3.13.14, Home Assistant 2025.12.5: **59 tests passed**, exit status 0.
+- Ruff lint, formatting and whitespace checks passed.
+- Live observation request succeeded with trusted-root and hostname verification:
+  Kojšovská hoľa, measured 2026-10-08T20:24Z, 12.0°C. Automatic selection for
+  Veľký Šariš is this mountain station, 32.6 km away; setup/options allow overriding it.
+- Live district-map lookup resolves Veľký Šariš (49.04, 21.2) to Prešov (`PO`).
+- Live Prešov warning page parsed successfully with no warnings at the check time.
+  The Bratislava response contained a level-1 wind warning, 2026-10-08T21:00Z
+  through 2026-10-09T02:00Z; parsing preserves its text and times.
+- SHMÚ's CAP directory listed only September 7/9 snapshots during the October 8
+  investigation, so it is not used for current warning state.
 
-The tests cover actual sample decoding, median and wind-sector selection,
-precipitation conservation, ALADIN-to-ECMWF handoff, nulls, unit/identity validation,
-DST and partial days, HTTP errors, run discovery, caching and expiry. Home Assistant
-lifecycle tests cover config flow, duplicate prevention, retry, real weather services,
-forecast subscriptions, unavailable/recovery state, options reload and unloading.
-The latter use mocked SHMÚ network responses and a local Home Assistant instance,
-not the user's running Home Assistant server.
+Tests cover source fixtures, units/nulls, fixed-CET observation timestamps,
+freshness/future rejection, bounded discovery/fallback, source independence,
+warning parsing/expiry/empty pages/malformed pages/multiple nested warning tables,
+district matching, certificate-verification settings, partial future days,
+23/25-hour DST days, retained earlier modeled hours and daily rain icons.
 
-## Current-version caveat
+Real Home Assistant lifecycle tests exercise setup, forecast services/subscriptions,
+observation attributes and model fallback, active/upcoming/unavailable warning states,
+options reload, diagnostics privacy and listener cleanup on unload. Network responses
+are mocked in these tests; they do not exercise the user's running HA installation.
 
-Python 3.14.6, Home Assistant 2026.10.0: all **27 assertions pass**, including
-configuration and weather services, but the interpreter exits with a segmentation
-fault (139) during final garbage collection. This reproduces with both Homebrew
-and standalone Python 3.14.6 on this Mac. Pure forecast-only tests exit cleanly;
-the lifecycle suite triggers the shutdown issue. Its root cause is not established.
-Do not treat this as a clean end-to-end 2026.10 certification.
+The updated CI runs the Linux HA 2025.12.5/Python 3.13 and HA 2026.10.0/Python 3.14
+matrix, plus hassfest and HACS checks. HACS's brands check is excluded because local
+brand assets ship with the integration. Remote results are recorded after the push.
 
-The test harness handles the newer device-registry initialization and supplies the
-mock-only stream-writer argument missing from aioresponses 0.7.9 under aiohttp 3.14.
-Neither compatibility adjustment changes the integration's production behavior.
-The initial GitHub Actions Linux CI matrix passed for both Home Assistant releases:
+## Earlier baseline
+
+The initial Linux matrix passed for both HA versions:
 [run 37836147255](https://github.com/setrin/hass-shmu-integration/actions/runs/37836147255).
-This confirms the tests complete cleanly on Linux; the local macOS shutdown issue
-above remains separately documented.
+Live JSON forecasting selected both published 2026-10-08T12:00Z model runs.
 
-## Publication and remaining checks
+On this Mac, the earlier HA 2026.10/Python 3.14 lifecycle suite passed its assertions
+but crashed during interpreter shutdown. Both Homebrew and standalone Python showed
+that behavior; Linux CI completed cleanly. The integration has not been installed
+on the user's actual Home Assistant server as part of these checks.
 
-The manifest links and maintainer are configured for `setrin/hass-shmu-integration`.
-HACS metadata and local brand assets are present, and the repository is public.
-HACS remote validation has not been run. The Release workflow supports a dry run
-and explicit publication after the same test matrix succeeds.
+## Publication
 
-- Review the GitHub Actions matrix and investigate any current-version failure.
-- Install on the target Home Assistant instance and verify its UI/card.
+The public repository is `setrin/hass-shmu-integration`; the manifest is prepared
+for version 0.2.0. The Release workflow requires all four validation jobs and supports
+an explicit publication switch. Pushing these changes does not create a release.

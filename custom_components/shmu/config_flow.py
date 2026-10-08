@@ -8,10 +8,21 @@ from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig,
 
 from .api import ShmuClient, ShmuError
 from .const import CONF_MODE, CONF_STATION, DEFAULT_MODE, DOMAIN, MODES
+from .stations import STATIONS
 
 
 def mode_selector():
     return SelectSelector(SelectSelectorConfig(options=list(MODES), translation_key=CONF_MODE))
+
+
+def observation_selector():
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=["auto", "model"] + [str(station.ind_kli) for station in STATIONS],
+            translation_key="observation_station",
+            mode=SelectSelectorMode.DROPDOWN,
+        )
+    )
 
 
 class ShmuConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -48,7 +59,11 @@ class ShmuConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 else:
                     return self.async_create_entry(
                         title=self._stations[station_id]["name"],
-                        data={**self._stations[station_id], CONF_MODE: user_input[CONF_MODE]},
+                        data={
+                            **self._stations[station_id],
+                            CONF_MODE: user_input[CONF_MODE],
+                            "observation_station": user_input.get("observation_station", "auto"),
+                        },
                     )
         choices = [
             {"value": key, "label": f"{row['name']} ({key})"}
@@ -64,6 +79,7 @@ class ShmuConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     )
                 ),
                 vol.Required(CONF_MODE, default=DEFAULT_MODE): mode_selector(),
+                vol.Required("observation_station", default="auto"): observation_selector(),
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -96,5 +112,16 @@ class ShmuOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             errors=errors,
-            data_schema=vol.Schema({vol.Required(CONF_MODE, default=mode): mode_selector()}),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_MODE, default=mode): mode_selector(),
+                    vol.Required(
+                        "observation_station",
+                        default=self.config_entry.options.get(
+                            "observation_station",
+                            self.config_entry.data.get("observation_station", "auto"),
+                        ),
+                    ): observation_selector(),
+                }
+            ),
         )

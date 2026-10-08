@@ -156,3 +156,32 @@ def test_condition_is_conservative():
     assert condition({"cloud_coverage": 0}, True) == "sunny"
     assert condition({"native_precipitation": 1, "snowfall": 1}) == "snowy"
     assert condition({"native_precipitation": 2, "snowfall": 1}) == "snowy-rainy"
+
+
+def test_daily_rain_is_not_diluted_by_dry_hours():
+    now = datetime(2026, 10, 8, tzinfo=UTC)
+    hours = {
+        int((now + timedelta(hours=i)).timestamp()): {
+            "native_temperature": 12,
+            "cloud_coverage": 0,
+            "native_precipitation": 1 if i == 5 else 0,
+        }
+        for i in range(22)
+    }
+    daily = daily_forecasts(hours, now)
+    assert daily[0]["condition"] == "rainy"
+    assert daily[0]["native_precipitation"] == 1
+
+
+@pytest.mark.parametrize(
+    "start,count", [("2026-03-28T23:00:00+00:00", 23), ("2026-10-24T22:00:00+00:00", 25)]
+)
+def test_future_day_requires_complete_dst_coverage(start, count):
+    day = datetime.fromisoformat(start)
+    hours = {
+        int((day + timedelta(hours=i)).timestamp()): {"native_temperature": 12}
+        for i in range(count)
+    }
+    assert len(daily_forecasts(hours, day - timedelta(days=1))) == 1
+    hours.pop(max(hours))
+    assert daily_forecasts(hours, day - timedelta(days=1)) == []

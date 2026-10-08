@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import aiohttp
 
 from .const import DATA_URL, MAX_RUN_AGE_HOURS, PRODUCTS_URL, STATIONS_URL
-from .forecast import ModelRun, merge_runs, parse_run
+from .forecast import LOCAL_TZ, ModelRun, merge_runs, parse_run
 
 
 class ShmuError(Exception):
@@ -33,6 +33,7 @@ class ShmuClient:
         if not self.station_id.isdigit():
             raise ValueError("Invalid station ID")
         self._cache = {}
+        self._past_hours = {}
 
     async def _json(self, url):
         try:
@@ -133,6 +134,21 @@ class ShmuClient:
         hours = merge_runs(runs, mode)
         if int(now.timestamp()) // 3600 * 3600 not in hours:
             raise ShmuError("No fresh forecast covers the current hour")
+        # Keep earlier modeled hours of today when a new run replaces the old one.
+        # This is a bounded in-memory history, never a substitute for a fresh forecast.
+        today = now.astimezone(LOCAL_TZ).date()
+        hour = int(now.timestamp()) // 3600 * 3600
+        past = {
+            t: row
+            for t, row in self._past_hours.items()
+            if t < hour and datetime.fromtimestamp(t, UTC).astimezone(LOCAL_TZ).date() == today
+        }
+        hours = dict(sorted((past | hours).items()))
+        self._past_hours = {
+            t: row
+            for t, row in hours.items()
+            if datetime.fromtimestamp(t, UTC).astimezone(LOCAL_TZ).date() == today
+        }
         degraded = [
             model
             for model, (_, fallback) in zip(models, results, strict=True)

@@ -2,15 +2,17 @@
 
 from homeassistant.const import Platform
 
-from .coordinator import ShmuCoordinator
+from .coordinator import ShmuCoordinator, ShmuLiveCoordinator
 
-PLATFORMS = [Platform.WEATHER]
+PLATFORMS = [Platform.WEATHER, Platform.SENSOR, Platform.BINARY_SENSOR]
 
 
 async def async_setup_entry(hass, entry):
     """Set up one city from the UI."""
     coordinator = ShmuCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
+    coordinator.live = ShmuLiveCoordinator(hass, entry)
+    await coordinator.live.async_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
