@@ -1,0 +1,44 @@
+{
+  "title": "SHMÚ Weather",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select a Slovak city",
+        "description": "Current weather is a forecast model estimate, not a live observation. Combined mode uses ALADIN first and ECMWF for the extended forecast.",
+        "data": {
+          "station_id": "City",
+          "forecast_mode": "Forecast source"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not retrieve a usable SHMÚ forecast. Please try again.",
+      "invalid_station": "Choose a city from the list."
+    },
+    "abort": {
+      "already_configured": "This city is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Forecast source",
+        "data": {
+          "forecast_mode": "Forecast source"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not retrieve a usable forecast for this source. Please try again."
+    }
+  },
+  "selector": {
+    "forecast_mode": {
+      "options": {
+        "combined": "ALADIN, then ECMWF",
+        "aladin": "ALADIN only",
+        "ecmwf": "ECMWF only"
+      }
+    }
+  }
+}

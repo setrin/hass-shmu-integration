@@ -1,0 +1,16 @@
+[
+  {
+    "station_id": 32737,
+    "station_name": "Bratislava (centrum)",
+    "lat": "48.156000",
+    "lon": "17.105000",
+    "district_code": 101
+  },
+  {
+    "station_id": 32397,
+    "station_name": "Veľký Šariš",
+    "lat": "49.040000",
+    "lon": "21.200000",
+    "district_code": 707
+  }
+]

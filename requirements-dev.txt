@@ -1,0 +1,2 @@
+-r requirements-test.txt
+homeassistant==2025.12.5

@@ -1,0 +1,14 @@
+{
+  "domain": "shmu",
+  "name": "SHMÚ Weather",
+  "codeowners": [
+    "@setrin"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/setrin/hass-shmu-integration",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/setrin/hass-shmu-integration/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

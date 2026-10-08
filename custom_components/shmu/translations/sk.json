@@ -1,0 +1,44 @@
+{
+  "title": "Počasie SHMÚ",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vyberte mesto na Slovensku",
+        "description": "Aktuálne počasie je odhad z predpovedného modelu, nie živé meranie. Kombinovaný režim uprednostní ALADIN a dlhšiu predpoveď doplní z ECMWF.",
+        "data": {
+          "station_id": "Mesto",
+          "forecast_mode": "Zdroj predpovede"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nepodarilo sa načítať použiteľnú predpoveď SHMÚ. Skúste to znova.",
+      "invalid_station": "Vyberte mesto zo zoznamu."
+    },
+    "abort": {
+      "already_configured": "Toto mesto je už nakonfigurované."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Zdroj predpovede",
+        "data": {
+          "forecast_mode": "Zdroj predpovede"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nepodarilo sa načítať použiteľnú predpoveď pre tento zdroj. Skúste to znova."
+    }
+  },
+  "selector": {
+    "forecast_mode": {
+      "options": {
+        "combined": "ALADIN, potom ECMWF",
+        "aladin": "Iba ALADIN",
+        "ecmwf": "Iba ECMWF"
+      }
+    }
+  }
+}
