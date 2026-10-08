@@ -104,6 +104,9 @@
       },
       "today_gust_max": {
         "name": "Dnešný maximálny predpovedaný náraz vetra"
+      },
+      "current_temperature": {
+        "name": "Aktuálna teplota"
       }
     },
     "binary_sensor": {

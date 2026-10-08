@@ -136,11 +136,12 @@ forecast and warning requests identify the selected public city/district. The in
 
 ## Additional weather sensors
 
-Each city also exposes eight sensors:
+Each city also exposes nine sensors:
 
 | Sensor | Values |
 | --- | --- |
 | Today forecast temperature low / high | Minimum and maximum temperature, °C |
+| Current temperature | Current temperature, °C |
 | Current wind speed / gust | Current wind and gust, m/s |
 | Today forecast wind minimum / maximum | Minimum and maximum forecast wind speed, m/s |
 | Today forecast gust minimum / maximum | Minimum and maximum forecast hourly gust values, m/s |
@@ -158,7 +159,7 @@ and `coverage_complete`. Partial coverage after startup and missing fields can a
 extrema; missing values are never treated as zero. Days with daylight-saving changes
 have 23 or 25 expected hours. Sensors advance at each hour, including local midnight.
 
-Current wind and gust follow the weather entity's observation/model fallback. A missing
+Current temperature, wind and gust follow the weather entity's observation/model fallback. A missing
 field in a fresh observation remains unknown; the `source` attribute identifies the
 source used. Daily sensors become unavailable if forecast retrieval fails; fresh
 observations can still supply current wind. These sensors appear automatically after

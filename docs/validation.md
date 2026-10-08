@@ -4,8 +4,8 @@
 
 - Python 3.13 / Home Assistant 2025.12.5: **62 tests passed**, exit status 0.
 - Ruff lint, formatting and whitespace checks passed.
-- Adds eight sensors for today's forecast temperature/wind/gust extrema and
-  current wind/gust, sharing current-weather selection with the weather entity.
+- Adds nine sensors for today's forecast temperature/wind/gust extrema and
+  current temperature/wind/gust, sharing current-weather selection with the weather entity.
 - Tests verify local-date boundaries, 23/25-hour DST coverage, partial/missing
   values, zero wind, HA unit conversion, observations during forecast outages,
   unavailable daily sensors, fallback, hourly clock callback and listener cleanup.

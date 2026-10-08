@@ -104,6 +104,9 @@
       },
       "today_gust_max": {
         "name": "Today forecast gust maximum"
+      },
+      "current_temperature": {
+        "name": "Current temperature"
       }
     },
     "binary_sensor": {

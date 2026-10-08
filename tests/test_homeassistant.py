@@ -234,7 +234,10 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
         def sensor(key):
             return hass.states.get(registry.async_get_entity_id("sensor", "shmu", f"32397_{key}"))
 
-        assert len(hass.states.async_all("sensor")) == 9
+        assert len(hass.states.async_all("sensor")) == 10
+        assert sensor("current_temperature").state == "13.2"
+        assert sensor("current_temperature").attributes["unit_of_measurement"] == "°C"
+        assert sensor("current_temperature").attributes["source"] == "observation"
         assert sensor("current_wind").state == "0.0"
         assert sensor("current_gust").state == "14.4"  # HA metric preference converts m/s to km/h.
         assert sensor("current_wind").attributes["source"] == "observation"
@@ -289,11 +292,16 @@ async def test_live_weather_warnings_diagnostics_and_recovery(hass, fixture_data
         assert hass.states.get(weather).state != "unavailable"
         assert sensor("current_wind").state == "0.0"
         assert sensor("today_temperature_min").state == "unavailable"
+        assert sensor("current_temperature").state == "13.2"
         entry.runtime_data.async_set_updated_data(forecast)
         # A warning-source failure must never produce an all-clear.
         entry.runtime_data.live.async_set_updated_data({"observation": None, "warnings": None})
         await hass.async_block_till_done()
         assert sensor("current_wind").attributes["source"] == "forecast_model"
+        assert sensor("current_temperature").attributes["source"] == "forecast_model"
+        assert float(sensor("current_temperature").state) == pytest.approx(
+            hass.states.get(weather).attributes["temperature"], abs=0.1
+        )
         assert sensor("current_gust").state not in ("unknown", "unavailable")
         assert hass.states.get(binary).state == "unavailable"
         assert hass.states.get(level).state == "unavailable"

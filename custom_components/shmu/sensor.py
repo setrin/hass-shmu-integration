@@ -1,4 +1,4 @@
-"""SHMÚ warning level, current wind and today's forecast extrema."""
+"""SHMÚ warning level, current weather and today's forecast extrema."""
 
 from datetime import UTC, datetime
 
@@ -39,6 +39,7 @@ class WarningLevel(WarningEntity, SensorEntity):
 VALUES = (
     ("today_temperature_min", "native_temperature", "min"),
     ("today_temperature_max", "native_temperature", "max"),
+    ("current_temperature", "native_temperature", None),
     ("current_wind", "native_wind_speed", None),
     ("current_gust", "native_wind_gust_speed", None),
     ("today_wind_min", "native_wind_speed", "min"),
